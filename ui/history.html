@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Historia</title>
+<style>
+:root { --bg:#1e1f22; --card:#2b2d31; --line:#3a3d44; --fg:#e6e6e6; --mut:#9a9ca3; --acc:#5b8def; --err:#ff7b7b; }
+* { box-sizing:border-box; margin:0; font-family:"Segoe UI",sans-serif; font-size:14px; }
+body { background:var(--bg); color:var(--fg); padding:32px 16px; }
+main { max-width:860px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+h1 { font-size:24px; font-weight:600; }
+.top { display:flex; gap:8px; }
+#q { flex:1; height:36px; padding:0 12px; border-radius:6px; border:1px solid var(--line); background:var(--card); color:var(--fg); outline:none; }
+#q:focus { border-color:var(--acc); }
+.btn { height:36px; padding:0 14px; border:0; border-radius:6px; background:var(--line); color:var(--fg); cursor:pointer; }
+.btn.danger:hover { background:var(--err); color:#fff; }
+.day { color:var(--mut); font-size:13px; margin:12px 0 4px; }
+.list { background:var(--card); border-radius:10px; overflow:hidden; }
+.item { display:grid; grid-template-columns:52px 1fr auto; gap:12px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); cursor:pointer; }
+.item:last-child { border-bottom:0; }
+.item:hover { background:var(--line); }
+.time { color:var(--mut); font-size:12px; }
+.txt { min-width:0; }
+.title, .url { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.url { color:var(--mut); font-size:12px; }
+.del { width:28px; height:28px; display:grid; place-items:center; border:0; border-radius:6px; background:none; color:var(--mut); cursor:pointer; }
+.del:hover { background:var(--bg); color:var(--fg); }
+.del svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+.empty { color:var(--mut); padding:24px; text-align:center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Historia</h1>
+  <div class="top">
+    <input id="q" spellcheck="false" placeholder="Szukaj w historii">
+    <button class="btn danger" id="clear">Wyczyść całą historię</button>
+  </div>
+  <div id="out"></div>
+</main>
+<script>
+const send = (o) => window.ipc.postMessage(JSON.stringify(o));
+const $ = (id) => document.getElementById(id);
+const X = '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+
+window.onHistory = (entries) => {
+  const out = $("out"); out.innerHTML = "";
+  if (!entries.length) { out.innerHTML = '<div class="empty">Brak wpisów</div>'; return; }
+  let day = null, list = null;
+  for (const e of entries) {
+    const d = new Date(e.ts * 1000);
+    const label = d.toLocaleDateString("pl-PL", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    if (label !== day) {
+      day = label;
+      const h = document.createElement("div"); h.className = "day"; h.textContent = label; out.append(h);
+      list = document.createElement("div"); list.className = "list"; out.append(list);
+    }
+    const it = document.createElement("div"); it.className = "item";
+    const t = document.createElement("span"); t.className = "time";
+    t.textContent = d.toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" });
+    const txt = document.createElement("div"); txt.className = "txt";
+    const ti = document.createElement("div"); ti.className = "title"; ti.textContent = e.title || e.url;
+    const u = document.createElement("div"); u.className = "url"; u.textContent = e.url;
+    txt.append(ti, u);
+    const del = document.createElement("button"); del.className = "del"; del.title = "Usuń"; del.innerHTML = X;
+    del.onclick = (ev) => { ev.stopPropagation(); send({ cmd: "delete", url: e.url }); };
+    it.onclick = () => send({ cmd: "open", url: e.url });
+    it.append(t, txt, del); list.append(it);
+  }
+};
+
+let timer;
+$("q").oninput = () => { clearTimeout(timer); timer = setTimeout(() => send({ cmd: "search", q: $("q").value }), 150); };
+$("clear").onclick = () => { if (confirm("Usunąć całą historię?")) send({ cmd: "clear" }); };
+send({ cmd: "search", q: "" });
+</script>
+</body>
+</html>

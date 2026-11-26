@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Ustawienia</title>
+<style>
+:root { --bg:#1e1f22; --card:#2b2d31; --line:#3a3d44; --fg:#e6e6e6; --mut:#9a9ca3; --acc:#5b8def; --err:#ff7b7b; --ok:#6fcf97; }
+* { box-sizing:border-box; margin:0; font-family:"Segoe UI",sans-serif; font-size:14px; }
+body { background:var(--bg); color:var(--fg); display:flex; min-height:100vh; }
+nav { width:220px; flex:0 0 220px; padding:32px 12px; border-right:1px solid var(--line); display:flex; flex-direction:column; gap:4px; }
+nav h1 { font-size:18px; font-weight:600; padding:0 10px 16px; }
+.cat { height:36px; padding:0 12px; border:0; border-radius:6px; background:none; color:var(--mut); text-align:left; cursor:pointer; }
+.cat:hover { background:var(--card); color:var(--fg); }
+.cat.on { background:var(--card); color:var(--fg); }
+main { flex:1; padding:32px 24px; overflow:auto; }
+.page { display:none; max-width:760px; flex-direction:column; gap:20px; }
+.page.on { display:flex; }
+h2 { font-size:16px; font-weight:600; margin-bottom:4px; }
+.card { background:var(--card); border-radius:10px; padding:20px; display:flex; flex-direction:column; gap:12px; }
+.hint { color:var(--mut); font-size:13px; line-height:1.5; }
+.row { display:grid; grid-template-columns:28px 1fr 90px 1fr auto; gap:8px; align-items:center; }
+.head { color:var(--mut); font-size:12px; }
+.prio { color:var(--mut); text-align:center; }
+input[type=text], input[type=number] { width:100%; height:34px; padding:0 10px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--fg); outline:none; }
+input:focus { border-color:var(--acc); }
+.url { grid-column:2 / 6; color:var(--mut); font-family:Consolas,monospace; font-size:12px; margin-top:-4px; }
+.icons { display:flex; gap:2px; }
+.ib { width:30px; height:30px; display:grid; place-items:center; border:0; border-radius:6px; background:none; color:var(--mut); cursor:pointer; }
+.ib:hover:not(:disabled) { background:var(--line); color:var(--fg); }
+.ib:disabled { opacity:.3; cursor:default; }
+.ib svg, .btn svg { width:16px; height:16px; }
+.btn { display:inline-flex; align-items:center; gap:6px; height:34px; padding:0 14px; border:0; border-radius:6px; background:var(--line); color:var(--fg); cursor:pointer; }
+.btn.primary { background:var(--acc); color:#fff; }
+.actions { display:flex; gap:8px; align-items:center; }
+.msg { margin-left:auto; }
+.msg.err { color:var(--err); } .msg.ok { color:var(--ok); }
+label.opt { display:flex; gap:12px; align-items:flex-start; cursor:pointer; }
+label.opt input { margin-top:3px; width:16px; height:16px; accent-color:var(--acc); flex:0 0 16px; }
+</style>
+</head>
+<body>
+<nav>
+  <h1>Ustawienia</h1>
+  <button class="cat on" data-p="dns">DNS</button>
+  <button class="cat" data-p="hist">Historia i sesje</button>
+</nav>
+<main>
+<section class="page on" id="p-dns">
+  <div class="card">
+    <h2>Serwery DNS over HTTPS</h2>
+    <p class="hint">
+      Adres: IP (np. <code>1.1.1.1</code>, <code>2606:4700::1111</code>) lub nazwa hosta.
+      Port domyślnie 443. Ścieżka zwykle <code>/dns-query</code>.<br>
+      Kolejność to priorytet: następny serwer jest używany, gdy poprzedni <b>nie odpowiada</b>.
+      Odpowiedź „brak domeny” od serwera jest ostateczna.
+    </p>
+    <div class="row head"><span>#</span><span>Adres</span><span>Port</span><span>Ścieżka</span><span></span></div>
+    <div id="list"></div>
+    <div><button class="btn" id="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Dodaj serwer</button></div>
+  </div>
+  <div class="card">
+    <h2>Gdy żaden serwer nie odpowiada</h2>
+    <label class="opt">
+      <input type="checkbox" id="fallback">
+      <span>Użyj systemowego DNS Windows<br>
+      <span class="hint">Wyłączone: strona się nie załaduje (błąd DNS). Włączone: wygodniej, ale zapytania mogą trafić poza DoH.</span></span>
+    </label>
+  </div>
+  <div class="actions">
+    <button class="btn primary" id="save">Zapisz i uruchom ponownie</button>
+    <button class="btn" id="reset">Przywróć domyślne</button>
+    <span class="msg" id="msg"></span>
+  </div>
+</section>
+
+<section class="page" id="p-hist">
+  <div class="card">
+    <h2>Sesja przy starcie</h2>
+    <label class="opt"><input type="radio" name="sm" value="restore"><span>Przywracaj karty automatycznie</span></label>
+    <label class="opt"><input type="radio" name="sm" value="ask"><span>Pytaj przy starcie</span></label>
+    <label class="opt"><input type="radio" name="sm" value="none"><span>Nie zachowuj sesji<br><span class="hint">Każde uruchomienie zaczyna od strony startowej.</span></span></label>
+  </div>
+  <div class="card">
+    <h2>Historia</h2>
+    <label class="opt"><input type="checkbox" id="saveHist"><span>Zapisuj historię przeglądania</span></label>
+    <label class="opt"><input type="checkbox" id="clearExit"><span>Czyść historię przy zamknięciu</span></label>
+  </div>
+  <div class="actions"><span class="msg" id="msg2"></span></div>
+</section>
+</main>
+<script>
+const send = (o) => window.ipc.postMessage(JSON.stringify(o));
+const $ = (id) => document.getElementById(id);
+const ICON = {
+  up: '<path d="M18 15l-6-6-6 6"/>',
+  down: '<path d="M6 9l6 6 6-6"/>',
+  del: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+let servers = [];
+
+document.querySelectorAll(".cat").forEach((c) => c.onclick = () => {
+  document.querySelectorAll(".cat").forEach((x) => x.classList.toggle("on", x === c));
+  document.querySelectorAll(".page").forEach((p) => p.classList.toggle("on", p.id === "p-" + c.dataset.p));
+});
+
+function url(s) {
+  const h = s.host.includes(":") ? `[${s.host}]` : s.host;
+  const p = Number(s.port) === 443 ? "" : `:${s.port}`;
+  const path = s.path.startsWith("/") ? s.path : "/" + s.path;
+  return `https://${h}${p}${path}`;
+}
+
+function render() {
+  const list = $("list"); list.innerHTML = "";
+  servers.forEach((s, i) => {
+    const row = document.createElement("div"); row.className = "row";
+    row.innerHTML = `<span class="prio">${i + 1}</span>
+      <input type="text" data-k="host" spellcheck="false" placeholder="1.1.1.1">
+      <input type="number" data-k="port" min="1" max="65535">
+      <input type="text" data-k="path" spellcheck="false" placeholder="/dns-query">
+      <span class="icons">
+        <button class="ib" data-a="up" title="Wyżej" ${i === 0 ? "disabled" : ""}>${svg("up")}</button>
+        <button class="ib" data-a="down" title="Niżej" ${i === servers.length - 1 ? "disabled" : ""}>${svg("down")}</button>
+        <button class="ib" data-a="del" title="Usuń" ${servers.length === 1 ? "disabled" : ""}>${svg("del")}</button>
+      </span>
+      <span class="url"></span>`;
+    const u = row.querySelector(".url");
+    row.querySelectorAll("input").forEach((inp) => {
+      inp.value = s[inp.dataset.k];
+      inp.oninput = () => {
+        s[inp.dataset.k] = inp.dataset.k === "port" ? Number(inp.value) : inp.value.trim();
+        u.textContent = url(s);
+      };
+    });
+    u.textContent = url(s);
+    row.querySelectorAll(".ib").forEach((b) => b.onclick = () => {
+      const a = b.dataset.a;
+      if (a === "up") [servers[i - 1], servers[i]] = [servers[i], servers[i - 1]];
+      if (a === "down") [servers[i + 1], servers[i]] = [servers[i], servers[i + 1]];
+      if (a === "del") servers.splice(i, 1);
+      render();
+    });
+    list.append(row);
+  });
+}
+
+function msg(id, text, kind) { $(id).textContent = text; $(id).className = "msg " + (kind || ""); }
+
+window.onSettings = (cfg) => {
+  servers = cfg.servers.map((s) => ({ ...s }));
+  $("fallback").checked = cfg.fallback_system;
+  document.querySelectorAll('input[name=sm]').forEach((r) => r.checked = r.value === cfg.session_mode);
+  $("saveHist").checked = cfg.save_history;
+  $("clearExit").checked = cfg.clear_history_on_exit;
+  render(); msg("msg", "");
+};
+window.onSettingsError = (m) => msg("msg", m, "err");
+window.onPrefsSaved = () => { msg("msg2", "Zapisano", "ok"); setTimeout(() => msg("msg2", ""), 1500); };
+
+$("add").onclick = () => { servers.push({ host: "", port: 443, path: "/dns-query" }); render(); };
+$("save").onclick = () => {
+  msg("msg", "Zapisywanie…");
+  send({ cmd: "save_settings", servers, fallback_system: $("fallback").checked });
+};
+$("reset").onclick = () => send({ cmd: "reset_settings" });
+
+// Preferencje historii/sesji zapisują się od razu, bez restartu.
+const savePrefs = () => send({
+  cmd: "save_prefs",
+  session_mode: (document.querySelector('input[name=sm]:checked') || {}).value || "restore",
+  save_history: $("saveHist").checked,
+  clear_history_on_exit: $("clearExit").checked,
+});
+document.querySelectorAll('#p-hist input').forEach((i) => i.onchange = savePrefs);
+
+send({ cmd: "get_settings" });
+</script>
+</body>
+</html>

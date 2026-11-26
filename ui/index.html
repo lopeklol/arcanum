@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<style>
+:root { --bg:#1e1f22; --bar:#2b2d31; --tab:#35373c; --act:#4a4d55; --fg:#e6e6e6; --mut:#9a9ca3; --acc:#5b8def; --close:#e81123; }
+* { box-sizing:border-box; margin:0; font-family:"Segoe UI",sans-serif; font-size:13px; }
+html,body { background:transparent; color:var(--fg); overflow:hidden; height:100%; user-select:none; }
+#chrome { background:var(--bg); }
+svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+#top { display:flex; height:36px; }
+#tabs { display:flex; gap:2px; flex:1; min-width:0; padding:0 6px 0 0; align-items:stretch; }
+#drag { flex:1; min-width:40px; height:100%; }
+/* Hitbox karty: pełna wysokość rzędu (od górnej krawędzi); widoczna część to .tab::before. */
+.tab { position:relative; display:flex; align-items:center; gap:6px; max-width:220px; min-width:60px; flex:0 1 200px; height:36px;
+       padding:6px 6px 0 10px; cursor:default; isolation:isolate; }
+.tab:first-child { padding-left:16px; }
+.tab::before { content:""; position:absolute; left:0; right:0; bottom:0; height:30px; border-radius:8px 8px 0 0; z-index:-1; }
+.tab:first-child::before { left:6px; }
+.tab:hover:not(.active)::before { background:var(--tab); }
+.tab.active::before { background:var(--bar); }
+.tab:not(.active) .t { color:var(--mut); }
+#new { align-self:flex-end; }
+.tab .t { flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.tab .x { flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center; border-radius:4px; color:var(--mut); }
+.tab .x svg { width:12px; height:12px; }
+.tab .x:hover { background:var(--act); color:var(--fg); }
+.ib { width:32px; height:32px; display:grid; place-items:center; border:0; background:none; color:var(--fg); border-radius:6px; }
+.ib:hover, .ib.on { background:var(--act); }
+#new { flex:0 0 28px; width:28px; height:28px; margin-bottom:1px; }
+#win { display:flex; height:36px; }
+.wb { width:46px; height:36px; display:grid; place-items:center; border:0; background:none; color:var(--fg); }
+.wb svg { width:12px; height:12px; stroke-width:1.5; }
+.wb:hover { background:var(--act); }
+#wclose:hover { background:var(--close); color:#fff; }
+body.nohover .wb:hover, body.nohover .ib:hover { background:none; }
+body.nohover #wclose:hover { color:var(--fg); }
+#bar { display:flex; gap:4px; align-items:center; height:44px; padding:0 8px; background:var(--bar); position:relative; }
+#url { flex:1; height:32px; padding:0 12px; border:1px solid transparent; border-radius:16px; background:var(--bg); color:var(--fg); outline:none; user-select:text; }
+#url:focus { border-color:var(--acc); }
+/* Nakładka: klik poza menu/podpowiedziami zamyka je. */
+#shade { display:none; position:fixed; top:80px; left:0; right:0; bottom:0; }
+body.ov #shade { display:block; }
+.pop { display:none; position:absolute; top:42px; background:var(--bar); border:1px solid var(--act); border-radius:8px;
+       box-shadow:0 8px 24px rgba(0,0,0,.5); padding:4px; z-index:20; }
+.pop.open { display:block; }
+#menu { right:8px; width:220px; }
+.mi { display:flex; align-items:center; gap:10px; width:100%; height:34px; padding:0 10px; border:0; border-radius:6px; background:none; color:var(--fg); text-align:left; }
+.mi:hover { background:var(--act); }
+.mi .k { margin-left:auto; color:var(--mut); font-size:12px; }
+.sep { height:1px; background:var(--act); margin:4px 6px; }
+#sugg { left:112px; right:48px; }
+.sg { display:flex; flex-direction:column; padding:6px 10px; border-radius:6px; cursor:default; }
+.sg.sel, .sg:hover { background:var(--act); }
+.sg .st, .sg .su { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.sg .su { color:var(--mut); font-size:12px; }
+.rz { position:fixed; z-index:30; }
+#rz-n { top:0; left:6px; right:6px; height:4px; cursor:n-resize; }
+#rz-w { top:6px; height:74px; left:0; width:4px; cursor:w-resize; }
+#rz-e { top:6px; height:74px; right:0; width:4px; cursor:e-resize; }
+#rz-nw { top:0; left:0; width:6px; height:6px; cursor:nw-resize; }
+#rz-ne { top:0; right:0; width:6px; height:6px; cursor:ne-resize; }
+body.max .rz { display:none; }
+</style>
+</head>
+<body>
+<div class="rz" id="rz-n" data-d="n"></div><div class="rz" id="rz-w" data-d="w"></div><div class="rz" id="rz-e" data-d="e"></div>
+<div class="rz" id="rz-nw" data-d="nw"></div><div class="rz" id="rz-ne" data-d="ne"></div>
+<div id="chrome">
+<div id="top">
+  <div id="tabs"></div>
+  <div id="win">
+    <button class="wb" id="wmin" title="Minimalizuj"><svg viewBox="0 0 12 12"><path d="M1 6h10"/></svg></button>
+    <button class="wb" id="wmax" title="Maksymalizuj"><svg viewBox="0 0 12 12"><rect x="1.5" y="1.5" width="9" height="9"/></svg></button>
+    <button class="wb" id="wclose" title="Zamknij"><svg viewBox="0 0 12 12"><path d="M1.5 1.5l9 9M10.5 1.5l-9 9"/></svg></button>
+  </div>
+</div>
+<div id="bar">
+  <button class="ib" id="back" title="Wstecz (Alt+Lewo)"><svg viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></button>
+  <button class="ib" id="fwd" title="Dalej (Alt+Prawo)"><svg viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg></button>
+  <button class="ib" id="reload" title="Odśwież (F5)"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg></button>
+  <input id="url" spellcheck="false" autocomplete="off" placeholder="Wpisz adres lub wyszukaj">
+  <button class="ib" id="menuBtn" title="Menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
+  <div class="pop" id="sugg"></div>
+  <div class="pop" id="menu">
+    <button class="mi" data-c="new_tab"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Nowa karta<span class="k">Ctrl+T</span></button>
+    <button class="mi" data-c="open_history"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Historia<span class="k">Ctrl+H</span></button>
+    <div class="sep"></div>
+    <button class="mi" data-c="open_settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>Ustawienia</button>
+  </div>
+</div>
+</div>
+<div id="shade"></div>
+<div class="pop" id="ask" style="top:88px;right:8px;width:300px;padding:12px;">
+  <div style="margin-bottom:10px">Przywrócić karty z poprzedniej sesji?</div>
+  <div style="display:flex;gap:8px;justify-content:flex-end">
+    <button class="mi" style="width:auto;background:var(--acc);color:#fff" id="askYes">Przywróć</button>
+    <button class="mi" style="width:auto" id="askNo">Nie</button>
+  </div>
+</div>
+<script>
+window.askSession = () => { $("ask").classList.add("open"); document.body.classList.add("ov"); send({ cmd: "overlay", open: true }); };
+const answer = (yes) => { $("ask").classList.remove("open"); document.body.classList.remove("ov"); send({ cmd: "overlay", open: false }); send({ cmd: "restore_session", yes }); };
+$("askYes").onclick = () => answer(true);
+$("askNo").onclick = () => answer(false);
+</script>
+<script>
+const send = (o) => window.ipc.postMessage(JSON.stringify(o));
+const $ = (id) => document.getElementById(id);
+const X_SVG = '<svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>';
+const PLUS_SVG = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+let state = { tabs: [], active: 0 };
+let sugg = [], sel = -1;
+
+// --- nakładka (menu/podpowiedzi nad treścią strony) ---
+function syncOverlay() {
+  const open = $("menu").classList.contains("open") || $("sugg").classList.contains("open");
+  if (open !== document.body.classList.contains("ov")) {
+    document.body.classList.toggle("ov", open);
+    send({ cmd: "overlay", open });
+  }
+}
+function closeMenu() { $("menu").classList.remove("open"); $("menuBtn").classList.remove("on"); syncOverlay(); }
+function closeSugg() { $("sugg").classList.remove("open"); sugg = []; sel = -1; syncOverlay(); }
+$("shade").onmousedown = () => { closeMenu(); closeSugg(); $("url").blur(); };
+
+$("menuBtn").onclick = () => {
+  const open = !$("menu").classList.contains("open");
+  closeSugg();
+  $("menu").classList.toggle("open", open); $("menuBtn").classList.toggle("on", open);
+  syncOverlay();
+};
+document.querySelectorAll(".mi").forEach((b) => b.onclick = () => { closeMenu(); send({ cmd: b.dataset.c }); });
+
+// --- podpowiedzi ---
+window.onSuggest = (q, items) => {
+  if (q !== $("url").value || document.activeElement !== $("url")) return;
+  sugg = items; sel = -1;
+  const box = $("sugg"); box.innerHTML = "";
+  items.forEach((e, i) => {
+    const d = document.createElement("div"); d.className = "sg";
+    const t = document.createElement("span"); t.className = "st"; t.textContent = e.title || e.url;
+    const u = document.createElement("span"); u.className = "su"; u.textContent = e.url;
+    d.append(t, u);
+    d.onmousedown = (ev) => { ev.preventDefault(); go(e.url); };
+    d.onmouseenter = () => mark(i);
+    box.append(d);
+  });
+  box.classList.toggle("open", items.length > 0);
+  syncOverlay();
+};
+function mark(i) {
+  sel = i;
+  [...$("sugg").children].forEach((c, j) => c.classList.toggle("sel", j === i));
+}
+function go(u) { closeSugg(); send({ cmd: "navigate", url: u }); $("url").blur(); }
+
+let st;
+$("url").oninput = () => {
+  clearTimeout(st);
+  const q = $("url").value;
+  if (!q.trim()) { closeSugg(); return; }
+  st = setTimeout(() => send({ cmd: "suggest", q }), 60);
+};
+$("url").onkeydown = (e) => {
+  if (e.key === "ArrowDown" && sugg.length) { e.preventDefault(); mark((sel + 1) % sugg.length); }
+  else if (e.key === "ArrowUp" && sugg.length) { e.preventDefault(); mark((sel - 1 + sugg.length) % sugg.length); }
+  else if (e.key === "Enter") go(sel >= 0 ? sugg[sel].url : $("url").value);
+  else if (e.key === "Escape") { closeSugg(); $("url").blur(); window.onState(state); }
+};
+$("url").onfocus = () => { closeMenu(); setTimeout(() => $("url").select(), 0); };
+$("url").onblur = () => closeSugg();
+
+// --- karty ---
+window.onState = (s) => {
+  state = s;
+  const t = $("tabs"); t.innerHTML = "";
+  for (const tab of s.tabs) {
+    const el = document.createElement("div");
+    el.className = "tab" + (tab.id === s.active ? " active" : "");
+    const title = document.createElement("span"); title.className = "t";
+    const blank = !tab.url || tab.url === "about:blank";
+    title.textContent = (tab.title && tab.title !== "about:blank" ? tab.title : "") || (blank ? "Nowa karta" : tab.url);
+    el.title = title.textContent;
+    const x = document.createElement("span"); x.className = "x"; x.innerHTML = X_SVG; x.title = "Zamknij (Ctrl+W)";
+    x.onclick = (e) => { e.stopPropagation(); send({ cmd: "close_tab", id: tab.id }); };
+    el.onclick = () => send({ cmd: "switch_tab", id: tab.id });
+    el.onauxclick = (e) => { if (e.button === 1) send({ cmd: "close_tab", id: tab.id }); };
+    el.append(title, x); t.append(el);
+  }
+  const nb = document.createElement("button"); nb.className = "ib"; nb.id = "new"; nb.innerHTML = PLUS_SVG; nb.title = "Nowa karta (Ctrl+T)";
+  nb.onclick = () => send({ cmd: "new_tab" }); t.append(nb);
+  const drag = document.createElement("div"); drag.id = "drag";
+  drag.onmousedown = (e) => { if (e.button === 0 && e.detail === 1) send({ cmd: "win_drag" }); };
+  drag.ondblclick = () => send({ cmd: "win_maximize" });
+  t.append(drag);
+  const a = s.tabs.find((x) => x.id === s.active);
+  if (a && document.activeElement !== $("url")) $("url").value = a.url === "about:blank" ? "" : a.url;
+};
+window.focusUrl = () => { $("url").focus(); $("url").select(); };
+window.onMaximized = (m) => document.body.classList.toggle("max", m);
+
+// Po minimalizacji/maksymalizacji WebView nie dostaje mouseleave -> hover "wisi".
+// Wyłączamy go do pierwszego ruchu myszy.
+const freezeHover = () => {
+  document.body.classList.add("nohover");
+  const off = () => { document.body.classList.remove("nohover"); document.removeEventListener("mousemove", off); };
+  setTimeout(() => document.addEventListener("mousemove", off), 50);
+};
+$("wmin").onclick = () => { freezeHover(); send({ cmd: "win_minimize" }); };
+$("wmax").onclick = () => { freezeHover(); send({ cmd: "win_maximize" }); };
+$("wclose").onclick = () => send({ cmd: "win_close" });
+document.querySelectorAll(".rz").forEach((r) => r.onmousedown = (e) => {
+  if (e.button === 0) { e.preventDefault(); send({ cmd: "win_resize", dir: r.dataset.d }); }
+});
+$("back").onclick = () => send({ cmd: "back" });
+$("fwd").onclick = () => send({ cmd: "forward" });
+$("reload").onclick = () => send({ cmd: "reload" });
+
+document.addEventListener("keydown", (e) => {
+  const k = e.key.toLowerCase();
+  if (e.ctrlKey && k === "t") { e.preventDefault(); send({ cmd: "new_tab" }); }
+  else if (e.ctrlKey && k === "w") { e.preventDefault(); send({ cmd: "close_tab", id: state.active }); }
+  else if (e.ctrlKey && k === "h") { e.preventDefault(); send({ cmd: "open_history" }); }
+  else if (e.ctrlKey && k === "l") { e.preventDefault(); window.focusUrl(); }
+  else if (e.ctrlKey && e.key === "Tab") { e.preventDefault(); send({ cmd: "cycle_tab", back: e.shiftKey }); }
+  else if (e.key === "F5") { e.preventDefault(); send({ cmd: "reload" }); }
+  else if (e.altKey && e.key === "ArrowLeft") { e.preventDefault(); send({ cmd: "back" }); }
+  else if (e.altKey && e.key === "ArrowRight") { e.preventDefault(); send({ cmd: "forward" }); }
+  else if (e.key === "Escape") { closeMenu(); }
+});
+
+send({ cmd: "ready" });
+</script>
+</body>
+</html>
